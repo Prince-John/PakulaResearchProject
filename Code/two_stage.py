@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn import tree
 from sklearn.manifold import TSNE
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor,  RandomForestClassifier
 from impyute.imputation.cs import fast_knn
 from sklearn.preprocessing import OneHotEncoder
 
@@ -45,10 +45,34 @@ def label_and_clean(data, feature_Set):
     
     return data
 
-def accuracy(confusion_matrix):
-   diagonal_sum = confusion_matrix.trace()
+def accuracy(confusion_matrix, binary = False):
+   if binary == True:
+       diagonal_sum = confusion_matrix[1:,1:].sum()+confusion_matrix[0,0]
+   else:
+       diagonal_sum = confusion_matrix.trace()
    sum_of_all_elements = confusion_matrix.sum()
    return diagonal_sum / sum_of_all_elements
+
+
+
+
+
+
+
+
+
+
+def list_to_pd(df):
+    output = pd.DataFrame(columns = range(0,9));
+    for row in df.index:
+        output.loc[len(output)]  = df[row].T.tolist()
+    return output
+
+
+
+
+
+
 
 
 hungarian_labeled = label_and_clean(hungarian_raw,complete_label_list)
@@ -78,10 +102,10 @@ X=fast_knn(X.values.astype(float), k=30)
 #spliting the data into test and train sets
 train, test, Y_train, Y_test = train_test_split(X,hungarian_labeled[complete_label_list[57]], test_size = 0.2, stratify = hungarian_labeled[complete_label_list[57]])
     
-X_train = train.T[0:34].T
-X_test = test.T[0:34].T
-Y_artery_train = train.T[34:]
-Y_artery_test =  test.T[34:].T
+X_train = train.T[0:31].T
+X_test = test.T[0:31].T
+Y_artery_train = train.T[31:]
+Y_artery_test =  test.T[31:]
 
 for artery in Y_artery_train:
     
@@ -92,7 +116,7 @@ for artery in Y_artery_train:
     
     
     #ann = 
-    clf_ANN = MLPClassifier(solver='lbfgs', activation = 'logistic', hidden_layer_sizes = (500))
+    clf_ANN = MLPClassifier(solver='lbfgs', activation = 'logistic', hidden_layer_sizes = (5000))
     clf_ANN.fit(X_train, artery)
     
     #tree
@@ -119,12 +143,16 @@ for artery in Y_artery_train:
     
     
     
-    """
-    cm_ANN = confusion_matrix(Y_pred_ANN, Y_artery_test)
-    cm_tree = confusion_matrix(Y_pred_tree, Y_artery_test)
-    cm_SVM = confusion_matrix(Y_pred_SVM, Y_test)
+    
+    cm_ANN = confusion_matrix(Y_pred_ANN, Y_artery_test[len(artery_accuracy)])
+    cm_tree = confusion_matrix(Y_pred_tree, Y_artery_test[len(artery_accuracy)])
+    cm_SVM = confusion_matrix(Y_pred_SVM, Y_artery_test[len(artery_accuracy)])
    
     
+    accuracies=[cm_ANN, cm_SVM, cm_tree]
+    artery_accuracy.loc[len(artery_accuracy)]  = accuracies
+    
+    """
     #store the efficiency in the dataframe
     accuracies=[accuracy(cm_ANN), accuracy(cm_SVM), accuracy(cm_tree)]
     artery_accuracy.loc[len(artery_accuracy)]  = accuracies
@@ -133,16 +161,52 @@ for artery in Y_artery_train:
 
 
 
+##training the random forest 
+##only on 58-67
+
+clf_RF = RandomForestClassifier(max_depth=10000, random_state=5)
+clf_RF.fit(Y_artery_train.T, Y_train)
+
+
+##training the random forest 
+##on extended set
+clf_RF_ext = RandomForestClassifier(max_depth=10000, random_state=5)
+clf_RF_ext.fit(train, Y_train)
+
+
+###Random forest prediction
+     
+target_predictions_ANN = clf_RF.predict(np.stack(artery_prediction["ANN"]).T)     
+target_predictions_tree = clf_RF.predict(np.stack(artery_prediction["Tree"]).T)
+target_predictions_SVM =  clf_RF.predict(np.stack(artery_prediction["SVM"]).T)    
+
+cm_target_ANN = confusion_matrix(target_predictions_ANN, Y_test)
+cm_target_tree = confusion_matrix(target_predictions_tree,Y_test)
+cm_target_SVM = confusion_matrix(target_predictions_SVM, Y_test)
+
+print("\nAccuracy of target predection with Random forest trained only on arteries: \n")
+print("ANN only: ", accuracy(cm_target_ANN), "\nTree only: ", accuracy(cm_target_tree), "\nSVM only: ", accuracy(cm_target_SVM))
+print("\nAccuracy of target predection with Random forest trained only on arteries binary classification only: \n")
+print("ANN only: ", accuracy(cm_target_ANN, binary = True), "\nTree only: ", accuracy(cm_target_tree, binary = True), "\nSVM only: ", accuracy(cm_target_SVM, binary = True))
+
+
+##prediction of whth extended set
+
+target_predictions_ANN = clf_RF_ext.predict(np.concatenate((X_test,np.stack(artery_prediction["ANN"]).T), axis= 1))     
+target_predictions_tree = clf_RF_ext.predict(np.concatenate((X_test, np.stack(artery_prediction["Tree"]).T), axis= 1))
+target_predictions_SVM =  clf_RF_ext.predict(np.concatenate((X_test, np.stack(artery_prediction["SVM"]).T), axis= 1))    
+
+cm_target_ANN = confusion_matrix(target_predictions_ANN, Y_test)
+cm_target_tree = confusion_matrix(target_predictions_tree,Y_test)
+cm_target_SVM = confusion_matrix(target_predictions_SVM, Y_test)
+
+print("\nAccuracy of target predection with Random forest trained only on arteries: \n")
+print("ANN only: ", accuracy(cm_target_ANN), "\nTree only: ", accuracy(cm_target_tree), "\nSVM only: ", accuracy(cm_target_SVM))
+print("\nAccuracy of target predection with Random forest trained only on arteries binary classification only: \n")
+print("ANN only: ", accuracy(cm_target_ANN, binary = True), "\nTree only: ", accuracy(cm_target_tree, binary = True), "\nSVM only: ", accuracy(cm_target_SVM, binary = True))
 
 
 
-
-
-
-
-
-Y = hungarian_labeled[['58 num: diagnosis of heart disease (angiographic disease status)']]
-X = hungarian_labeled.drop(axis = 1, labels = "58 num: diagnosis of heart disease (angiographic disease status)")
 
 
 
