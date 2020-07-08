@@ -19,12 +19,12 @@ from sklearn import tree
 from sklearn.manifold import TSNE
 from sklearn.ensemble import RandomForestRegressor
 
-file = open(r'C:\Users\Prince John\Documents\Summer 2020\Research Project\PakulaResearchProject\datasets\labels.txt',  encoding='utf-8')
+file = open(r'\labels.txt',  encoding='utf-8')
 complete_label_list = [line.strip() for line in file.readlines()]
 
 
 
-hungarian_raw=pd.read_csv(r'C:\Users\Prince John\Documents\Summer 2020\Research Project\PakulaResearchProject\datasets\CleanedData\cleaned_hungarian.csv')
+hungarian_raw=pd.read_csv(r\switzerland.csv')
 
 remove = complete_label_list[0:2]+complete_label_list[19:22]+complete_label_list[35:36]+complete_label_list[44:46]+complete_label_list[51:57]+complete_label_list[68:75]
 

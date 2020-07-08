@@ -1,17 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul  3 08:47:52 2020
-This is the correlation analysis of lmt artery and svm, ann and desision tree analysis
-@author: Prince John
-"""
+#!/usr/bin/env python
+# coding: utf-8
 
+# In[2]:
 
-#import pandas_bokeh
-#from bokeh.io import output_notebook
-#from bokeh.plotting import figure, show
 
 import pandas as pd
-#pd.options.plotting.backend = 'pandas_bokeh'
 import numpy as np
 from sklearn import svm
 from sklearn.model_selection import train_test_split
@@ -26,61 +19,100 @@ from sklearn.manifold import TSNE
 from sklearn.ensemble import RandomForestRegressor
 from impyute.imputation.cs import fast_knn
 from sklearn.preprocessing import OneHotEncoder
-file = open(r'C:\Users\bipin\Documents\PakulaResearchProject\datasets',  encoding='utf-8')
+from sklearn.ensemble import RandomForestRegressor,  RandomForestClassifier
+
+
+# In[11]:
+
+
+file = open(r'labels.txt',  encoding='utf-8')
 complete_label_list = [line.strip() for line in file.readlines()]
-
-
-
-hungarian_raw=pd.read_csv(r'D:\heart disease\hungarian.csv')
-
 remove = complete_label_list[0:2]+complete_label_list[19:22]+complete_label_list[35:36]+complete_label_list[44:46]+complete_label_list[51:57]+complete_label_list[68:75]
+# switzerland_raw= pd.read_csv('switzerland.csv')
+
+
+# In[12]:
+
+
+print(complete_label_list)
+
+
+# In[13]:
+
+
+switzerland_raw=pd.read_csv(r'switzerland.csv')
+
+
+# In[25]:
+
+
+
+
+
+# In[26]:
+
 
 def label_and_clean(data, feature_Set):
     data = data.drop(axis=1, labels = "Unnamed: 0")
     data.columns = complete_label_list
     data = data.drop(axis=1, labels = remove)
     data = data.replace(-9, np.NaN)
-   
-    
     return data
+switzerland_labeled = label_and_clean(switzerland_raw,complete_label_list)
+switzerland_labeled.head()
+
+
+# In[80]:
+
+
+X = switzerland_labeled.drop(axis = 1, labels = "58 num: diagnosis of heart disease (angiographic disease status)")
+X = X.drop(axis=1, labels= complete_label_list[58:68])
+X=X.dropna(axis =1, thresh = 50)
+
+
+# In[81]:
+
+
+Y_arteries = switzerland_labeled[complete_label_list[58:68]] 
+Y_arteries = Y_arteries.replace(to_replace = np.NAN, value = 0)
 
 def accuracy(confusion_matrix):
    diagonal_sum = confusion_matrix.trace()
    sum_of_all_elements = confusion_matrix.sum()
    return diagonal_sum / sum_of_all_elements
 
-
-hungarian_labeled = label_and_clean(hungarian_raw,complete_label_list)
-
-
 artery_accuracy = pd.DataFrame(columns = ["ANN", "SVM", "Tree"])
 
+def likelihood(top, bottom):
+    if top==0:
+        top = 1
+    return top/bottom
+
+def recall(confusion_matrix):
+    column_sum = np.sum(confusion_matrix, axis=0)
+    num=0
+    while num < len(confusion_matrix.T):
+        conditional_probability=confusion_matrix[num][num]/confusion_matrix.sum()
+        conditional_probability=conditional_probability*likelihood(confusion_matrix[num][num],column_sum[num])
+        num=num+1
+    return conditional_probability
+artery_recall =pd.DataFrame(columns = ["ANN", "SVM", "Tree"])
+
+
+# In[82]:
+
+
+X=fast_knn(X.values.astype(float), k=30) 
+
+
+# In[ ]:
 
 
 
-"""
-#LMT analysis begins exploration of correlation
-corr = hungarian_labeled.corr()
-lmt_corr= corr[complete_label_list[58]]
-Y_lmt = hungarian_labeled[complete_label_list[58]]
-Y_lmt = Y_lmt.replace(np.NaN, 0)
-p1 = lmt_corr.sort_values().plot(kind ="barh")
-"""
-
-#remove the arteries and 58
-X = hungarian_labeled.drop(axis = 1, labels = "58 num: diagnosis of heart disease (angiographic disease status)")
-X = X.drop(axis=1, labels= complete_label_list[58:68])
-print(X.info())
-X=X.dropna(axis =1, thresh = 50)
-
-Y_arteries = hungarian_labeled[complete_label_list[58:68]] 
-Y_arteries = Y_arteries.replace(to_replace = np.NAN, value = 0)
 
 
-#impute the data 
-X=fast_knn(X.values.astype(float), k=30)
-    
-    
+# In[83]:
+
 
 for artery in Y_arteries.columns:
     
@@ -92,8 +124,7 @@ for artery in Y_arteries.columns:
     scaler = preprocessing.StandardScaler()
     X_scaled = scaler.fit_transform(X_train)
     
-    
-    #ann = 
+     #ann = 
     ANN_no_PCA = MLPClassifier(solver='lbfgs', activation = 'logistic', hidden_layer_sizes = (500))
     ANN_no_PCA.fit(X_train, Y_train.to_numpy().flatten())
     
@@ -114,25 +145,49 @@ for artery in Y_arteries.columns:
     cm_ANN = confusion_matrix(Y_pred_ANN, Y_test)
     cm_tree = confusion_matrix(Y_pred_tree, Y_test)
     cm_SVM = confusion_matrix(Y_pred_SVM, Y_test)
-    
     #store the efficiency in the dataframe
     accuracies=[accuracy(cm_ANN), accuracy(cm_SVM), accuracy(cm_tree)]
+    recall_value = [recall(cm_ANN), recall(cm_tree), recall(cm_SVM)]
+        
+    artery_recall.loc[len(artery_recall)]  = recall_value
     artery_accuracy.loc[len(artery_accuracy)]  = accuracies
-    
 
 
+# In[84]:
 
 
+arr= [np.array(artery_recall.idxmax(axis=1)),np.array(artery_accuracy.idxmax(axis=1))]
+print(arr)
 
 
+# In[73]:
 
 
+clf_RF = RandomForestClassifier(max_depth=10000, random_state=5)
+clf_RF.fit(Y_artery_train.T, Y_train)
 
 
+# In[ ]:
 
 
-Y = hungarian_labeled[['58 num: diagnosis of heart disease (angiographic disease status)']]
-X = hungarian_labeled.drop(axis = 1, labels = "58 num: diagnosis of heart disease (angiographic disease status)")
+clf_RF_ext = RandomForestClassifier(max_depth=10000, random_state=5)
+clf_RF_ext.fit(train, Y_train)
+
+
+# In[ ]:
+
+
+clf_RF = RandomForestClassifier(max_depth=10000, random_state=5)
+clf_RF.fit(Y_artery_train.T, Y_train)
+
+
+# In[ ]:
+
+
+print(artery_recall)
+
+
+# In[ ]:
 
 
 
